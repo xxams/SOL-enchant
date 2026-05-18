@@ -29,9 +29,12 @@
         body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: var(--text); transition: background 0.3s, color 0.3s; }
         .container { max-width: 1400px; margin: 0 auto; background: var(--container-bg); padding: 40px; border-radius: 16px; box-shadow: 0 10px 30px var(--shadow); box-sizing: border-box; }
         
-        .header { text-align: center; margin-bottom: 30px; position: relative; }
-        .header h1 { margin: 0; font-size: 28px; color: var(--text-dark); display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 700; }
+        .header { text-align: center; margin-bottom: 30px; position: relative; width: 100%; }
+        .header h1 { margin: 0; font-size: 28px; color: var(--text-dark); display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 700; margin-bottom: 5px; }
         
+        /* 🏷️ 왼쪽 상단 전용 버전 영역 absolute 레이아웃 패치 */
+        .version-box { position: absolute; left: 0; top: 0; text-align: left; font-size: 12px; color: var(--text-muted); font-weight: 500; line-height: 1.5; padding-top: 4px; }
+
         .util-buttons { position: absolute; right: 0; top: 0; display: flex; gap: 8px; align-items: flex-start; }
         
         /* 버튼 래퍼 - 알림 텍스트를 버튼 아래에 배치하기 위함 */
@@ -45,7 +48,7 @@
         .feedback-time-notify { display: none; position: absolute; top: 100%; margin-top: 4px; font-size: 11px; color: var(--primary); font-weight: 700; white-space: nowrap; }
 
         .upload-section { border: 2px dashed var(--border); padding: 40px; text-align: center; border-radius: 12px; cursor: pointer; transition: all 0.2s ease; background: var(--table-th-bg); margin-bottom: 25px; }
-        .upload-section:hover { background: var(--table-hover); border-color: var(--primary); }
+        .upload-section:hover { background: var(--table-hover); border-color: var(--primary); color: var(--primary); }
         .upload-section.dragover { background: rgba(26,115,232,0.1); border-color: var(--primary); border-width: 3px; transform: scale(1.01); color: var(--primary); }
         
         .search-section { position: sticky; top: 0; background: var(--container-bg); padding: 20px 0 10px 0; z-index: 100; display: none; width: 100%; box-sizing: border-box; }
@@ -131,7 +134,13 @@
 
 <div class="container">
     <div class="header">
+        <div class="version-box">
+            <div id="toolVersionName">📦 로딩 중...</div>
+            <div id="toolUpdateTime">🕒 로딩 중...</div>
+        </div>
+
         <h1>🛡️ S-Log 가이드 통합 검색기</h1>
+        
         <div class="util-buttons">
             <div class="btn-wrapper">
                 <button id="btnFeedback" class="btn-util">
@@ -213,6 +222,22 @@
 
     document.addEventListener("DOMContentLoaded", function() {
         
+        // 🕒 깃허브 배포 시점을 인식해 최종 업데이트 시간 자동 산출
+        const lastModified = new Date(document.lastModified);
+        const year = lastModified.getFullYear();
+        const month = String(lastModified.getMonth() + 1).padStart(2, '0');
+        const date = String(lastModified.getDate()).padStart(2, '0');
+        const hours = String(lastModified.getHours()).padStart(2, '0');
+        const minutes = String(lastModified.getMinutes()).padStart(2, '0');
+        const timeTag = `${year}-${month}-${date} ${hours}:${minutes}`;
+
+        // 🏷️ 따옴표 내부의 버전을 원하시는 문자열로 자유롭게 변경하세요!
+        const myCustomVersion = "SOL:enchant S-log Searcher v3.0.3"; 
+        
+        // 두 줄로 각각 쪼개서 매칭
+        document.getElementById('toolVersionName').innerText = `📦 Version ${myCustomVersion}`;
+        document.getElementById('toolUpdateTime').innerText = `🕒 최종 업데이트: ${timeTag}`;
+
         const savedTheme = safeGetItem(THEME_KEY);
         if (savedTheme === 'dark') {
             document.documentElement.setAttribute('data-theme', 'dark');
@@ -242,7 +267,6 @@
         document.getElementById('closeGuideModal').addEventListener('click', () => document.getElementById('guideModal').style.display = 'none');
         document.getElementById('closeFeedbackModal').addEventListener('click', () => document.getElementById('feedbackModal').style.display = 'none');
         
-        // 아무곳이나 클릭하면 꺼지게 설정 (범용 모달 핸들러)
         window.addEventListener('click', (e) => { 
             if (e.target.classList.contains('modal')) {
                 e.target.style.display = 'none';
@@ -252,7 +276,6 @@
             }
         });
 
-        // iframe 전송 성공 핸들러
         document.getElementById('hidden_iframe').addEventListener('load', function() {
             if (isFeedbackSubmitted) {
                 document.getElementById('feedbackText').value = "";
@@ -262,11 +285,9 @@
                 btn.innerText = "보내기";
                 btn.disabled = false;
                 
-                // 🎉 신규 고지창 호출 (수동으로 닫을 때까지 유지)
                 document.getElementById('successModal').style.display = 'block';
                 isFeedbackSubmitted = false;
                 
-                // ⏱️ 등록 직후 실시간 수신 수동 1회 갱신 강제 요청
                 setTimeout(checkNewFeedback, 500);
             }
         });
@@ -297,13 +318,11 @@
         }
     }
 
-    // 📡 미처리 건 감지 전용 JSONP 리퀘스터
     function checkNewFeedback() {
         const formElement = document.getElementById('feedbackForm');
         const url = formElement.action;
         if (!url) return;
         
-        // 이전의 콜백 세션 찌꺼기가 남아있다면 청소
         const oldScript = document.getElementById('jsonp_feedback_script');
         if (oldScript) oldScript.remove();
         
@@ -313,14 +332,12 @@
         document.body.appendChild(script);
     }
 
-    // 📡 구글 데이터 수신 핸들러 (반영 여부 미체크 기반 알림 무한 유지)
     function handleFeedbackCheck(data) {
         if (!data) return;
         
         const uncheckCount = data.uncheckCount || 0;
         const lastTime = data.lastTime || "";
         
-        // 💡 미처리된 건(D열이 빈 칸인 상태)이 단 1개라도 있다면 무조건 알림 무한 유지!
         if (uncheckCount > 0) {
             document.getElementById('feedbackBadge').style.display = 'block';
             
