@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>S-Log 가이드 통합 검색기</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
+
+        /* 🎨 기본 라이트 모드 테마 */
+        :root { 
+            --primary: #1a73e8; --accent: #fcc419; --bg: #f8f9fa; --container-bg: #fff;
+            --text: #333; --text-dark: #111; --text-muted: #666;
+            --border: #ddd; --border-light: #eee;
+            --table-th-bg: #fcfcfc; --table-hover: #f9fbff;
+            --card-bg: #fff; --shadow: rgba(0,0,0,0.05);
+        }
+
+        /* 🌙 다크 모드 테마 (★ 해외 코인 거래소 상승장 청녹색 테마 반영) */
+        [data-theme="dark"] {
+            --bg: #121212; --container-bg: #1e1e1e;
+            --text: #e0e0e0; --text-dark: #ffffff; --text-muted: #aaa;
+            --border: #444; --border-light: #333;
+            --table-th-bg: #2d2d2d; --table-hover: #2a2a2a;
+            --card-bg: #252525; --shadow: rgba(0,0,0,0.3);
+            --primary: #0ecb81; /* 📈 바이낸스 스타일의 시원한 청녹색/에메랄드 */
+        }
+        
+        body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: var(--text); transition: background 0.3s, color 0.3s; }
+        .container { max-width: 1400px; margin: 0 auto; background: var(--container-bg); padding: 40px; border-radius: 16px; box-shadow: 0 10px 30px var(--shadow); box-sizing: border-box; }
+        
+        .header { text-align: center; margin-bottom: 30px; position: relative; }
+        .header h1 { margin: 0; font-size: 28px; color: var(--text-dark); display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 700; }
+        
+        .util-buttons { position: absolute; right: 0; top: 0; display: flex; gap: 8px; align-items: flex-start; }
+        
+        /* 버튼 래퍼 - 알림 텍스트를 버튼 아래에 배치하기 위함 */
+        .btn-wrapper { position: relative; display: flex; flex-direction: column; align-items: center; }
+        
+        .btn-util { background: var(--container-bg); color: var(--text); border: 1px solid var(--border); padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; font-family: 'Noto Sans KR', sans-serif; transition: 0.2s; display: inline-flex; align-items: center; gap: 5px; position: relative; }
+        .btn-util:hover { background: var(--table-hover); border-color: var(--primary); color: var(--primary); }
+
+        /* 🔴 알림용 배지 및 시간 텍스트 스타일 */
+        .feedback-badge { display: none; width: 8px; height: 8px; background-color: #ff4d4d; border-radius: 50%; position: absolute; top: -2px; right: -2px; box-shadow: 0 0 8px #ff4d4d; }
+        .feedback-time-notify { display: none; position: absolute; top: 100%; margin-top: 4px; font-size: 11px; color: var(--primary); font-weight: 700; white-space: nowrap; }
+
+        .upload-section { border: 2px dashed var(--border); padding: 40px; text-align: center; border-radius: 12px; cursor: pointer; transition: all 0.2s ease; background: var(--table-th-bg); margin-bottom: 25px; }
+        .upload-section:hover { background: var(--table-hover); border-color: var(--primary); }
+        .upload-section.dragover { background: rgba(26,115,232,0.1); border-color: var(--primary); border-width: 3px; transform: scale(1.01); color: var(--primary); }
+        
+        .search-section { position: sticky; top: 0; background: var(--container-bg); padding: 20px 0 10px 0; z-index: 100; display: none; width: 100%; box-sizing: border-box; }
+        #searchInput { width: 100%; padding: 18px 25px; font-size: 16px; border: 1px solid var(--border); background: var(--container-bg); color: var(--text-dark); border-radius: 12px; outline: none; box-shadow: 0 4px 12px rgba(0,0,0,0.06); box-sizing: border-box; font-family: 'Noto Sans KR', sans-serif; margin-bottom: 15px; }
+        
+        .category-filter { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+        .category-btn { background: var(--container-bg); border: 1px solid var(--border); padding: 8px 16px; border-radius: 20px; font-size: 14px; color: var(--text-muted); cursor: pointer; transition: 0.2s; font-family: 'Noto Sans KR', sans-serif; }
+        .category-btn:hover { background: var(--table-hover); border-color: var(--primary); color: var(--primary); }
+        .category-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 700; box-shadow: 0 2px 8px rgba(26,115,232,0.3); }
+
+        .table-wrapper { width: 100%; overflow-x: auto; border: 1px solid var(--border-light); border-radius: 12px; box-sizing: border-box; }
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; table-layout: fixed; }
+        th, td { box-sizing: border-box; }
+        
+        th { background: var(--table-th-bg); padding: 15px; text-align: center; border-bottom: 2px solid var(--border-light); font-size: 14px; color: var(--text-muted); position: sticky; top: 0; z-index: 10; font-weight: 500; }
+        td { padding: 16px 15px; text-align: left; border-bottom: 1px solid var(--border-light); font-size: 14px; line-height: 1.6; vertical-align: middle; color: var(--text); word-break: keep-all; }
+        tr:hover { background: var(--table-hover); }
+        
+        .action-content { color: var(--text-dark); font-weight: 500; display: block; margin-bottom: 8px; }
+        .action-keyword { color: var(--text-muted); font-size: 13px; display: block; }
+        
+        /* 🌓 다크모드 청녹색 배경 매칭 패치 */
+        .log-id { font-weight: 700; color: var(--primary); background: rgba(26,115,232,0.1); padding: 4px 10px; border-radius: 6px; font-size: 13px; }
+        [data-theme="dark"] .log-id { background: rgba(14, 203, 129, 0.15); }
+
+        .log-category { color: var(--primary); background: rgba(26,115,232,0.05); padding: 4px 10px; border-radius: 6px; font-weight: 500; font-size: 13px; cursor: help; border: 1px solid rgba(26,115,232,0.2); display: inline-block;}
+        [data-theme="dark"] .log-category { background: rgba(14, 203, 129, 0.08); border-color: rgba(14, 203, 129, 0.3); }
+
+        .log-key-item { display: inline-block; background: var(--table-th-bg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; margin: 3px 0; font-size: 13px; color: #0066ff; font-family: Arial, sans-serif; }
+        [data-theme="dark"] .log-key-item { color: #64b5f6; }
+
+        .btn-guide { background: var(--accent); color: #000; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; white-space: nowrap; font-family: 'Noto Sans KR', sans-serif; transition: 0.2s; }
+        .btn-guide:hover { filter: brightness(0.95); transform: translateY(-1px); }
+        
+        .search-highlight { background-color: #ffecb3; color: #d93025; font-weight: 700; padding: 0 3px; border-radius: 3px; }
+        .guide-match-badge { display: inline-block; font-size: 11px; color: #d93025; margin-top: 6px; font-weight: 700; background: #fce8e6; border-radius: 4px; padding: 3px 6px; letter-spacing: -0.5px;}
+        
+        .guide-link { display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: rgba(26,115,232,0.1); color: var(--primary); padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 700; text-decoration: none; margin-left: 10px; transition: 0.2s; border: 1px solid rgba(26,115,232,0.2); box-sizing: border-box; height: 28px; }
+        .guide-link:hover { background: var(--primary); color: #fff; transform: translateY(-1px); }
+        [data-theme="dark"] .guide-link { background: rgba(14, 203, 129, 0.15); border-color: rgba(14, 203, 129, 0.3); }
+
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
+        .modal-content { background: var(--container-bg); margin: 7% auto; padding: 35px; width: 90%; max-width: 800px; border-radius: 20px; position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.3); color: var(--text); }
+        .modal-header { border-bottom: 1px solid var(--border-light); margin-bottom: 20px; padding-bottom: 15px; font-size: 22px; font-weight: 700; color: var(--primary); }
+        
+        /* 작성 모달용 닫기 버튼 */
+        .close { position: absolute; right: 25px; top: 20px; font-size: 28px; cursor: pointer; color: var(--text-muted); transition: 0.2s; }
+        .close:hover { color: var(--text-dark); }
+        
+        .guide-body { font-size: 15px; max-height: 60vh; overflow-y: auto; text-align: left; font-family: 'Noto Sans KR', sans-serif; padding-right: 10px; }
+        .guide-card { background: var(--card-bg); border: 1px solid var(--border-light); border-radius: 10px; padding: 20px 24px; margin-bottom: 16px; }
+        .guide-card.default-card { border-left: 5px solid #1a73e8; }
+        [data-theme="dark"] .guide-card.default-card { border-left: 5px solid #0ecb81; }
+        .guide-card.warning-card { border-left: 5px solid #d93025; background: rgba(217,48,37,0.02); }
+        .guide-card.admin-card { border-left: 5px solid #fcc419; background: rgba(252,196,25,0.02); }
+        
+        .guide-section-title { font-size: 17px; font-weight: 700; color: #1a73e8; margin-bottom: 12px; display: flex; align-items: center; flex-wrap: wrap; border-bottom: 1px dashed var(--border-light); padding-bottom: 8px; }
+        [data-theme="dark"] .guide-section-title { color: #0ecb81; }
+        .guide-section-title.warning { color: #d93025; border-bottom-color: rgba(217,48,37,0.1); }
+        .guide-card-content { white-space: pre-wrap; line-height: 1.6; color: var(--text); word-break: keep-all; }
+        
+        .guide-highlight-key { display: inline-block; background: var(--table-th-bg); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-size: 13px; color: #0066ff; font-family: Arial, sans-serif; margin: 0 2px; }
+        [data-theme="dark"] .guide-highlight-key { color: #64b5f6; }
+        .guide-highlight-id { display: inline-block; background: var(--table-th-bg); border: 1px solid var(--border); padding: 2px 8px; border-radius: 6px; font-size: 13px; color: var(--text-dark); font-family: 'Noto Sans KR', sans-serif; margin: 0 2px; font-weight: 700; }
+        .guide-highlight-path { font-weight: 800; color: var(--text-dark); text-decoration: underline; text-underline-position: under; text-decoration-color: var(--border); }
+
+        .resizer { position: absolute; top: 0; right: 0; bottom: 0; width: 12px; cursor: col-resize; user-select: none; z-index: 11; }
+        .resizer::after { content: ""; position: absolute; right: 0; top: 20%; bottom: 20%; width: 2px; background-color: var(--border); }
+        .resizer:hover::after, .resizer.resizing::after { background-color: var(--primary); width: 4px; }
+        .no-select { user-select: none; }
+
+        .feedback-content-wrapper { display: flex; flex-direction: column; }
+        .feedback-textarea { width: 100%; height: 120px; padding: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text-dark); border-radius: 8px; outline: none; box-sizing: border-box; font-family: inherit; font-size: 14px; resize: none; margin-bottom: 15px; }
+        
+        .feedback-submit { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; font-family: inherit; align-self: flex-end; transition: background-color 0.3s ease; }
+        .feedback-submit:hover { filter: brightness(0.9); }
+
+        /* 🎉 제보 등록 완료 모달 전용 스타일 */
+        .success-info-text { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 25px; letter-spacing: -0.5px; font-weight: normal; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>🛡️ S-Log 가이드 통합 검색기</h1>
+        <div class="util-buttons">
+            <div class="btn-wrapper">
+                <button id="btnFeedback" class="btn-util">
+                    💡 오류 제보 및 의견
+                    <span id="feedbackBadge" class="feedback-badge"></span>
+                </button>
+                <span id="feedbackTimeNotify" class="feedback-time-notify"></span>
+            </div>
+            <button id="btnToggleTheme" class="btn-util">🌙 다크 모드</button>
+            <button id="btnUpdateData" class="btn-util" style="display: none;">🔄 엑셀 갱신</button>
+        </div>
+    </div>
+    
+    <div id="dropZone" class="upload-section">
+        <strong>엑셀 파일을 여기에 드래그하거나 클릭하여 로드하세요</strong>
+        <p style="font-size:13px; color:#888; margin-top:8px;">한 번 로드하면 브라우저에 저장되어 다음부턴 바로 열립니다.</p>
+        <input type="file" id="fileInput" accept=".xlsx, .xls" style="display: none;">
+    </div>
+    
+    <div id="searchSection" class="search-section">
+        <input type="text" id="searchInput" placeholder="상태, 키워드, 로그ID 등으로 검색... (예: 아이템 삭제)">
+        <div id="categoryFilter" class="category-filter"></div>
+    </div>
+    
+    <div class="table-wrapper">
+        <table id="logTable" style="display: none;">
+            <thead id="tableHead"></thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="guideModal" class="modal">
+    <div class="modal-content">
+        <span class="close" id="closeGuideModal">&times;</span>
+        <div id="modalTitle" class="modal-header"></div>
+        <div id="modalBody" class="guide-body"></div>
+    </div>
+</div>
+
+<div id="feedbackModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <span class="close" id="closeFeedbackModal">&times;</span>
+        <div class="modal-header">💡 오류 제보 및 건의사항</div>
+        <div class="feedback-content-wrapper">
+            <p style="font-size: 13px; color: var(--text-muted); margin-top: 0;">게임 패치로 인한 로그 변경, 가이드 수정 요청, 또는 툴 개선 의견을 자유롭게 남겨주세요.</p>
+            <textarea id="feedbackText" class="feedback-textarea" placeholder="내용을 입력하세요..."></textarea>
+            <button class="feedback-submit" id="btnSubmitFeedback">보내기</button>
+        </div>
+    </div>
+</div>
+
+<div id="successModal" class="modal">
+    <div class="modal-content" style="max-width: 400px; text-align: center; padding: 40px 30px;">
+        <div style="font-size: 45px; margin-bottom: 15px;">🚀</div>
+        <div style="font-size: 20px; font-weight: 700; color: var(--primary); margin-bottom: 10px;">제보가 완료되었습니다!</div>
+        <p style="font-size: 14px; color: var(--text); margin: 0; line-height: 1.5;">작성하신 소중한 피드백이<br>S-Log 취합 시트에 완벽하게 등록되었습니다.</p>
+        <div class="success-info-text">💡 화면 아무 곳이나 클릭하면 이 창이 닫힙니다.</div>
+    </div>
+</div>
+
+<iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
+
+<form id="feedbackForm" action="https://script.google.com/a/macros/igsinc.co.kr/s/AKfycbwUta-184YMBNfz3P2lGUgGhm2XB0FEfVwiWH_IaKPRWKQ3wT2KrYbOZxoJrDYupedZ/exec" method="POST" target="hidden_iframe" style="display:none;">
+    <input type="hidden" name="text" id="hiddenFormText">
+</form>
+
+<script>
+    function safeGetItem(key) { try { return localStorage.getItem(key); } catch(e) { return null; } }
+    function safeSetItem(key, value) { try { localStorage.setItem(key, value); } catch(e) {} }
+    function safeRemoveItem(key) { try { localStorage.removeItem(key); } catch(e) {} }
+
+    const STORAGE_KEY = 'slog_guide_data';
+    const THEME_KEY = 'slog_guide_theme';
+    let excelData = [];
+    let headers = [];
+    let currentCategory = ""; 
+    let isFeedbackSubmitted = false;
+
+    document.addEventListener("DOMContentLoaded", function() {
+        
+        const savedTheme = safeGetItem(THEME_KEY);
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('btnToggleTheme').innerText = "☀️ 라이트 모드";
+        }
+
+        const savedData = safeGetItem(STORAGE_KEY);
+        if (savedData) {
+            try {
+                excelData = JSON.parse(savedData);
+                if (excelData.length > 0) {
+                    headers = Object.keys(excelData[0]).filter(h => !h.includes("__EMPTY"));
+                    initUI();
+                }
+            } catch (e) { safeRemoveItem(STORAGE_KEY); }
+        }
+
+        document.getElementById('btnToggleTheme').addEventListener('click', toggleTheme);
+        
+        document.getElementById('btnFeedback').addEventListener('click', function() {
+            document.getElementById('feedbackModal').style.display = 'block';
+        });
+
+        document.getElementById('btnUpdateData').addEventListener('click', resetData);
+        document.getElementById('btnSubmitFeedback').addEventListener('click', submitFeedback);
+        
+        document.getElementById('closeGuideModal').addEventListener('click', () => document.getElementById('guideModal').style.display = 'none');
+        document.getElementById('closeFeedbackModal').addEventListener('click', () => document.getElementById('feedbackModal').style.display = 'none');
+        
+        // 아무곳이나 클릭하면 꺼지게 설정 (범용 모달 핸들러)
+        window.addEventListener('click', (e) => { 
+            if (e.target.classList.contains('modal')) {
+                e.target.style.display = 'none';
+            } 
+            if (document.getElementById('successModal').style.display === 'block') {
+                document.getElementById('successModal').style.display = 'none';
+            }
+        });
+
+        // iframe 전송 성공 핸들러
+        document.getElementById('hidden_iframe').addEventListener('load', function() {
+            if (isFeedbackSubmitted) {
+                document.getElementById('feedbackText').value = "";
+                document.getElementById('feedbackModal').style.display = 'none';
+                
+                const btn = document.getElementById('btnSubmitFeedback');
+                btn.innerText = "보내기";
+                btn.disabled = false;
+                
+                // 🎉 신규 고지창 호출 (수동으로 닫을 때까지 유지)
+                document.getElementById('successModal').style.display = 'block';
+                isFeedbackSubmitted = false;
+                
+                // ⏱️ 등록 직후 실시간 수신 수동 1회 갱신 강제 요청
+                setTimeout(checkNewFeedback, 500);
+            }
+        });
+
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const searchInput = document.getElementById('searchInput');
+
+        dropZone.onclick = () => fileInput.click();
+        fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
+        dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]); });
+        searchInput.addEventListener('keyup', search);
+
+        setTimeout(checkNewFeedback, 1000);
+    });
+
+    function toggleTheme() {
+        if (document.documentElement.getAttribute('data-theme') === 'dark') {
+            document.documentElement.removeAttribute('data-theme');
+            safeSetItem(THEME_KEY, 'light');
+            document.getElementById('btnToggleTheme').innerText = "🌙 다크 모드";
+        } else {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            safeSetItem(THEME_KEY, 'dark');
+            document.getElementById('btnToggleTheme').innerText = "☀️ 라이트 모드";
+        }
+    }
+
+    // 📡 미처리 건 감지 전용 JSONP 리퀘스터
+    function checkNewFeedback() {
+        const formElement = document.getElementById('feedbackForm');
+        const url = formElement.action;
+        if (!url) return;
+        
+        // 이전의 콜백 세션 찌꺼기가 남아있다면 청소
+        const oldScript = document.getElementById('jsonp_feedback_script');
+        if (oldScript) oldScript.remove();
+        
+        const script = document.createElement('script');
+        script.id = 'jsonp_feedback_script';
+        script.src = url + (url.includes('?') ? '&' : '?') + 'callback=handleFeedbackCheck&ts=' + new Date().getTime();
+        document.body.appendChild(script);
+    }
+
+    // 📡 구글 데이터 수신 핸들러 (반영 여부 미체크 기반 알림 무한 유지)
+    function handleFeedbackCheck(data) {
+        if (!data) return;
+        
+        const uncheckCount = data.uncheckCount || 0;
+        const lastTime = data.lastTime || "";
+        
+        // 💡 미처리된 건(D열이 빈 칸인 상태)이 단 1개라도 있다면 무조건 알림 무한 유지!
+        if (uncheckCount > 0) {
+            document.getElementById('feedbackBadge').style.display = 'block';
+            
+            const formattedTime = lastTime.length > 16 ? lastTime.substring(5, 16) : lastTime;
+            const timeNotify = document.getElementById('feedbackTimeNotify');
+            
+            timeNotify.innerText = `🚨 미처리 의견 ${uncheckCount}건 (${formattedTime})`;
+            timeNotify.style.display = 'inline-block';
+        } else {
+            document.getElementById('feedbackBadge').style.display = 'none';
+            document.getElementById('feedbackTimeNotify').style.display = 'none';
+        }
+    }
+
+    function submitFeedback() {
+        const text = document.getElementById('feedbackText').value.trim();
+        if(!text) { alert("내용을 입력해 주세요."); return; }
+
+        const formElement = document.getElementById('feedbackForm');
+        const btn = document.getElementById('btnSubmitFeedback');
+        btn.innerText = "전송 중..."; btn.disabled = true;
+
+        document.getElementById('hiddenFormText').value = text;
+        isFeedbackSubmitted = true;
+        formElement.submit(); 
+    }
+
+    function handleFile(file) {
+        if (!file) return;
+        if (typeof XLSX === 'undefined') { alert("엑셀 라이브러리가 로드되지 않았습니다."); return; }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array', raw: false });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                excelData = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+                if (excelData.length > 0) {
+                    safeSetItem(STORAGE_KEY, JSON.stringify(excelData));
+                    headers = Object.keys(excelData[0]).filter(h => !h.includes("__EMPTY"));
+                    initUI();
+                }
+            } catch (err) { alert("파일을 읽는 중 에러가 발생했습니다."); }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function resetData() {
+        if(confirm("기존에 저장된 데이터를 지우고 새 엑셀 파일을 올리시겠습니까?")) {
+            safeRemoveItem(STORAGE_KEY); excelData = []; headers = [];
+            document.getElementById('searchSection').style.display = 'none';
+            document.getElementById('logTable').style.display = 'none';
+            document.getElementById('btnUpdateData').style.display = 'none';
+            document.getElementById('dropZone').style.display = 'block';
+            document.getElementById('searchInput').value = ""; document.getElementById('fileInput').value = "";
+        }
+    }
+
+    function buildCategoryFilter() {
+        const categorySet = new Set();
+        excelData.forEach(row => {
+            let val = String(row[headers[0]] || "").trim();
+            if (val) {
+                let topLevel = val.split('>')[0].split('&gt;')[0].trim();
+                if (topLevel) categorySet.add(topLevel);
+            }
+        });
+        const filterContainer = document.getElementById('categoryFilter');
+        if (categorySet.size > 0) {
+            let html = `<button class="category-btn active" onclick="setCategory('', this)">전체보기</button>`;
+            Array.from(categorySet).sort().forEach(cat => { html += `<button class="category-btn" onclick="setCategory('${cat}', this)">${cat}</button>`; });
+            filterContainer.innerHTML = html;
+        }
+    }
+
+    function setCategory(cat, btnElement) {
+        currentCategory = cat;
+        document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+        btnElement.classList.add('active');
+        search(); 
+    }
+
+    function initUI() {
+        document.getElementById('searchSection').style.display = 'block';
+        document.getElementById('logTable').style.display = 'table';
+        document.getElementById('dropZone').style.display = 'none';
+        document.getElementById('btnUpdateData').style.display = 'inline-flex';
+        const thead = document.getElementById('tableHead');
+        thead.innerHTML = `<tr>${headers.map((h, index) => {
+            let width = "25%"; 
+            if (h.includes("아이디") || h.includes("ID") || h.includes("한글") || index === 0) width = "20%";
+            else if (h.includes("액션") || h.includes("키워드") || index === 1) width = "37%";
+            else if (h.includes("키 모음") || h.includes("로그 키") || h.includes("텍스트") || index === 2) width = "28%";
+            else if (h.includes("가이드") || h.includes("Guide") || index === headers.length - 1) width = "15%";
+            const resizerHTML = index < headers.length - 1 ? `<div class="resizer"></div>` : '';
+            return `<th style="width: ${width};">${h}${resizerHTML}</th>`;
+        }).join('')}</tr>`;
+        buildCategoryFilter(); search(); makeResizable();
+    }
+
+    function makeResizable() { 
+        const table = document.getElementById('logTable');
+        const ths = Array.from(table.querySelectorAll('th'));
+        ths.forEach((th, index) => {
+            const resizer = th.querySelector('.resizer'); if (!resizer) return; 
+            let startX, tableWidth, startLeftPct, startRightPct; let nextTh = ths[index + 1];
+            resizer.addEventListener('mousedown', function(e) {
+                startX = e.clientX; tableWidth = table.getBoundingClientRect().width;
+                ths.forEach(col => { col.style.width = `${(col.getBoundingClientRect().width / tableWidth) * 100}%`; });
+                startLeftPct = parseFloat(th.style.width); startRightPct = parseFloat(nextTh.style.width);
+                const mouseMoveHandler = function(e) {
+                    const dx = e.clientX - startX; const dxPct = (dx / tableWidth) * 100; const minPct = (60 / tableWidth) * 100;
+                    let newLeftPct = startLeftPct + dxPct; let newRightPct = startRightPct - dxPct;
+                    if (newLeftPct < minPct) { newLeftPct = minPct; newRightPct = startLeftPct + startRightPct - minPct; } 
+                    else if (newRightPct < minPct) { newRightPct = minPct; newLeftPct = startLeftPct + startRightPct - minPct; }
+                    th.style.width = `${newLeftPct}%`; nextTh.style.width = `${newRightPct}%`;
+                };
+                const mouseUpHandler = function() { document.removeEventListener('mousemove', mouseMoveHandler); document.removeEventListener('mouseup', mouseUpHandler); resizer.classList.remove('resizing'); document.body.classList.remove('no-select'); };
+                document.addEventListener('mousemove', mouseMoveHandler); document.addEventListener('mouseup', mouseUpHandler); resizer.classList.add('resizing'); document.body.classList.add('no-select');
+            });
+        });
+    }
+
+    function formatGuideContent(content) {
+        let html = content; let links = [];
+        html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s<>()]+)\)/g, function(match, text, url) { links.push(`<a href="${url}" target="_blank" class="guide-link"><span>🔗</span><span>${text.trim()}</span></a>`); return `__LINK_${links.length - 1}__`; });
+        html = html.replace(/(https?:\/\/[^\s<>()]+)/g, function(match) { links.push(`<a href="${match}" target="_blank" class="guide-link"><span>🔗</span><span>${match}</span></a>`); return `__LINK_${links.length - 1}__`; });
+        links.forEach((link, idx) => { html = html.replace(`__LINK_${idx}__`, link); });
+        html = html.replace(/MappingKey/g, '<span class="guide-highlight-key">MappingKey</span>');
+        html = html.replace(/([A-Za-z0-9_]+)\(([^)]+)\)/g, '<span class="guide-highlight-key">$1($2)</span>');
+        html = html.replace(/(\[[^\]]*-[^\]]*\])/g, '<span class="guide-highlight-path">$1</span>');
+        html = html.replace(/(\[[^\]]*&gt;[^\]]*\]|[^[\]\s][^[\]\n]*&gt;[^[\]\n]*[^[\]\s])/g, function(match) { if (match.includes('class="guide-highlight-path"')) return match; return '<span class="guide-highlight-id">' + match + '</span>'; });
+        html = html.replace(/▪️/g, '<span class="guide-bullet">▪️</span>');
+        return html;
+    }
+
+    function formatGuideText(text) {
+        if (!text) return ""; let safeText = text.replace(/</g, "&lt;").replace(/>/g, "&gt;"); safeText = safeText.replace(/\n{3,}/g, '\n\n');
+        const regex = /(💡[^\n]*|🔍[^\n]*|🚨[^\n]*|⚠️[^\n]*|❌[^\n]*)/; const parts = safeText.split(regex); let html = '';
+        if (parts[0].trim() !== "") html += `<div class="guide-card default-card"><div class="guide-card-content">${formatGuideContent(parts[0].trim())}</div></div>`;
+        for (let i = 1; i < parts.length; i += 2) {
+            let currentHeader = parts[i]; let currentContent = parts[i+1] ? parts[i+1].trim() : ""; let cardClass = "default-card"; let headerClass = "guide-section-title";
+            if (currentHeader.includes("⚠️") || currentHeader.includes("❌")) { cardClass = "warning-card"; headerClass += " warning"; } else if (currentHeader.includes("🚨")) { cardClass = "admin-card"; }
+            html += `<div class="guide-card ${cardClass}"><span class="${headerClass}">${formatGuideContent(currentHeader.trim())}</span><div class="guide-card-content">${formatGuideContent(currentContent)}</div></div>`;
+        }
+        return html;
+    }
+
+    function search() {
+        const query = document.getElementById('searchInput').value.toLowerCase().trim(); const searchTokens = query.split(/\s+/).filter(t => t.length > 0); const tbody = document.getElementById('tableBody'); tbody.innerHTML = "";
+        let filtered = excelData.filter(row => {
+            if (currentCategory) { let idVal = String(row[headers[0]] || "").trim(); let topLevel = idVal.split('>')[0].split('&gt;')[0].trim(); if (topLevel !== currentCategory) return false; }
+            if (searchTokens.length === 0) return headers.map(h => row[h]).some(v => String(v).trim() !== "");
+            const fullRowText = headers.map(h => row[h]).join(" ").toLowerCase(); return searchTokens.every(token => fullRowText.includes(token));
+        });
+        filtered.sort((a, b) => {
+            const aEmpty = headers.slice(1).every(h => String(a[h] || "").trim() === ""); const bEmpty = headers.slice(1).every(h => String(b[h] || "").trim() === "");
+            if (aEmpty && !bEmpty) return 1; if (!aEmpty && bEmpty) return -1;
+            if (searchTokens.length > 0) { const getScore = (row) => { let score = 0; const col1 = String(row[headers[1]] || "").toLowerCase(); searchTokens.forEach(token => { if (col1.includes("🔑") && col1.split("🔑")[1].includes(token)) score += 100; }); return score; }; return getScore(b) - getScore(a); }
+            return 0;
+        });
+        const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const highlightText = (text) => { if (searchTokens.length === 0) return text; const sortedTokens = [...searchTokens].sort((a, b) => b.length - a.length); return text.replace(new RegExp(`(${sortedTokens.map(escapeRegex).join('|')})`, 'gi'), '<mark class="search-highlight">$1</mark>'); };
+        filtered.forEach(row => {
+            const tr = document.createElement('tr'); const visibleText = (String(row[headers[0]] || "") + " " + String(row[headers[1]] || "") + " " + String(row[headers[2]] || "")).toLowerCase(); const isSearchState = searchTokens.length > 0; const hasMatchOnlyInGuide = isSearchState && !searchTokens.every(token => visibleText.includes(token));
+            headers.forEach((h, index) => {
+                let val = String(row[h] || "").trim(); let td = document.createElement('td');
+                if (h.includes("아이디") || h.includes("ID") || index === 0) { td.innerHTML = `<span class="log-id">${isSearchState ? highlightText(val) : val}</span>`; } 
+                else if (h.includes("액션") || h.includes("키워드") || index === 1) {
+                    if (val.includes("🔑")) { const parts = val.split("🔑"); td.innerHTML = `<span class="action-content">${isSearchState ? highlightText(parts[0].trim()) : parts[0].trim()}</span><span class="action-keyword">🔑 ${isSearchState ? highlightText(parts[1].trim()) : parts[1].trim()}</span>`; } else { td.innerHTML = `<span class="action-content">${isSearchState ? highlightText(val) : val}</span>`; }
+                }
+                else if (h.includes("키 모음") || h.includes("로그 키") || h.includes("텍스트") || index === 2) { td.style.textAlign = "center"; if (val) { td.innerHTML = val.split(',').map(k => `<div class="log-key-item">${isSearchState ? highlightText(k.trim()) : k.trim()}</div>`).join('<br>'); } } 
+                else if (h.includes("가이드") || h.includes("Guide") || index === headers.length - 1) {
+                    td.style.textAlign = "center";
+                    if (val.length > 3) {
+                        const btn = document.createElement('button'); btn.className = 'btn-guide'; btn.innerText = '가이드 보기';
+                        btn.addEventListener('click', () => { document.getElementById('modalTitle').innerText = "[" + (String(row[headers[0]] || "상세")) + "] S-Log 조회 가이드"; document.getElementById('modalBody').innerHTML = formatGuideText(val); document.getElementById('guideModal').style.display = 'block'; });
+                        td.appendChild(btn); if (hasMatchOnlyInGuide) { const badge = document.createElement('span'); badge.className = 'guide-match-badge'; badge.innerText = '검색어 포함'; td.appendChild(document.createElement('br')); td.appendChild(badge); }
+                    } else { td.innerText = val; }
+                } else { td.innerText = val; }
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+    }
+</script>
+</body>
+</html>
