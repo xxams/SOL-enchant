@@ -23,7 +23,7 @@
             --border: #444; --border-light: #333;
             --table-th-bg: #2d2d2d; --table-hover: #2a2a2a;
             --card-bg: #252525; --shadow: rgba(0,0,0,0.3);
-            --primary: #0ecb81; /* 📈 바이낸스 스타일의 시원한 청녹색/에메랄드 */
+            --primary: #0ecb81; 
         }
         
         body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: var(--text); transition: background 0.3s, color 0.3s; }
@@ -32,18 +32,25 @@
         .header { text-align: center; margin-bottom: 30px; position: relative; width: 100%; }
         .header h1 { margin: 0; font-size: 28px; color: var(--text-dark); display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 700; margin-bottom: 5px; }
         
-        /* 🏷️ 왼쪽 상단 전용 버전 영역 absolute 레이아웃 패치 */
+        /* 📄 타이틀 아래 파일명 표시 (부제목 스타일) */
+        .file-name-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 400;
+            margin-top: 5px;
+            letter-spacing: -0.3px;
+        }
+
+        /* 🏷️ 왼쪽 상단 전용 버전 영역 */
         .version-box { position: absolute; left: 0; top: 0; text-align: left; font-size: 12px; color: var(--text-muted); font-weight: 500; line-height: 1.5; padding-top: 4px; }
 
         .util-buttons { position: absolute; right: 0; top: 0; display: flex; gap: 8px; align-items: flex-start; }
         
-        /* 버튼 래퍼 - 알림 텍스트를 버튼 아래에 배치하기 위함 */
         .btn-wrapper { position: relative; display: flex; flex-direction: column; align-items: center; }
         
         .btn-util { background: var(--container-bg); color: var(--text); border: 1px solid var(--border); padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; font-family: 'Noto Sans KR', sans-serif; transition: 0.2s; display: inline-flex; align-items: center; gap: 5px; position: relative; }
         .btn-util:hover { background: var(--table-hover); border-color: var(--primary); color: var(--primary); }
 
-        /* 🔴 알림용 배지 및 시간 텍스트 스타일 */
         .feedback-badge { display: none; width: 8px; height: 8px; background-color: #ff4d4d; border-radius: 50%; position: absolute; top: -2px; right: -2px; box-shadow: 0 0 8px #ff4d4d; }
         .feedback-time-notify { display: none; position: absolute; top: 100%; margin-top: 4px; font-size: 11px; color: var(--primary); font-weight: 700; white-space: nowrap; }
 
@@ -70,7 +77,6 @@
         .action-content { color: var(--text-dark); font-weight: 500; display: block; margin-bottom: 8px; }
         .action-keyword { color: var(--text-muted); font-size: 13px; display: block; }
         
-        /* 🌓 다크모드 청녹색 배경 매칭 패치 */
         .log-id { font-weight: 700; color: var(--primary); background: rgba(26,115,232,0.1); padding: 4px 10px; border-radius: 6px; font-size: 13px; }
         [data-theme="dark"] .log-id { background: rgba(14, 203, 129, 0.15); }
 
@@ -94,7 +100,6 @@
         .modal-content { background: var(--container-bg); margin: 7% auto; padding: 35px; width: 90%; max-width: 800px; border-radius: 20px; position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.3); color: var(--text); }
         .modal-header { border-bottom: 1px solid var(--border-light); margin-bottom: 20px; padding-bottom: 15px; font-size: 22px; font-weight: 700; color: var(--primary); }
         
-        /* 작성 모달용 닫기 버튼 */
         .close { position: absolute; right: 25px; top: 20px; font-size: 28px; cursor: pointer; color: var(--text-muted); transition: 0.2s; }
         .close:hover { color: var(--text-dark); }
         
@@ -126,7 +131,6 @@
         .feedback-submit { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; font-family: inherit; align-self: flex-end; transition: background-color 0.3s ease; }
         .feedback-submit:hover { filter: brightness(0.9); }
 
-        /* 🎉 제보 등록 완료 모달 전용 스타일 */
         .success-info-text { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 25px; letter-spacing: -0.5px; font-weight: normal; }
     </style>
 </head>
@@ -141,6 +145,8 @@
 
         <h1>🛡️ S-Log 가이드 통합 검색기</h1>
         
+        <div id="currentFileName" class="file-name-subtitle"></div>
+        
         <div class="util-buttons">
             <div class="btn-wrapper">
                 <button id="btnFeedback" class="btn-util">
@@ -149,6 +155,7 @@
                 </button>
                 <span id="feedbackTimeNotify" class="feedback-time-notify"></span>
             </div>
+            
             <button id="btnToggleTheme" class="btn-util">🌙 다크 모드</button>
             <button id="btnUpdateData" class="btn-util" style="display: none;">🔄 엑셀 갱신</button>
         </div>
@@ -215,6 +222,8 @@
 
     const STORAGE_KEY = 'slog_guide_data';
     const THEME_KEY = 'slog_guide_theme';
+    const FILENAME_KEY = 'slog_guide_filename';
+    
     let excelData = [];
     let headers = [];
     let currentCategory = ""; 
@@ -222,7 +231,6 @@
 
     document.addEventListener("DOMContentLoaded", function() {
         
-        // 🕒 깃허브 배포 시점을 인식해 최종 업데이트 시간 자동 산출
         const lastModified = new Date(document.lastModified);
         const year = lastModified.getFullYear();
         const month = String(lastModified.getMonth() + 1).padStart(2, '0');
@@ -231,10 +239,8 @@
         const minutes = String(lastModified.getMinutes()).padStart(2, '0');
         const timeTag = `${year}-${month}-${date} ${hours}:${minutes}`;
 
-        // 🏷️ 따옴표 내부의 버전을 원하시는 문자열로 자유롭게 변경하세요!
-        const myCustomVersion = "SOL:enchant S-log Searcher v3.0.3"; 
+        const myCustomVersion = "SOL:enchant S-log Searcher v3.0.4"; 
         
-        // 두 줄로 각각 쪼개서 매칭
         document.getElementById('toolVersionName').innerText = `📦 Version ${myCustomVersion}`;
         document.getElementById('toolUpdateTime').innerText = `🕒 최종 업데이트: ${timeTag}`;
 
@@ -251,6 +257,12 @@
                 if (excelData.length > 0) {
                     headers = Object.keys(excelData[0]).filter(h => !h.includes("__EMPTY"));
                     initUI();
+                    
+                    // 로컬 스토리지에 저장된 파일명을 타이틀 아래에 로드
+                    const savedFileName = safeGetItem(FILENAME_KEY);
+                    if (savedFileName) {
+                        document.getElementById('currentFileName').innerText = `📁 현재 적용된 파일: ${savedFileName}`;
+                    }
                 }
             } catch (e) { safeRemoveItem(STORAGE_KEY); }
         }
@@ -368,6 +380,9 @@
     function handleFile(file) {
         if (!file) return;
         if (typeof XLSX === 'undefined') { alert("엑셀 라이브러리가 로드되지 않았습니다."); return; }
+        
+        const fileName = file.name;
+        
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
@@ -377,6 +392,11 @@
                 excelData = XLSX.utils.sheet_to_json(sheet, { defval: "" });
                 if (excelData.length > 0) {
                     safeSetItem(STORAGE_KEY, JSON.stringify(excelData));
+                    safeSetItem(FILENAME_KEY, fileName);
+                    
+                    // 파일 업로드 즉시 타이틀 아래에 파일명 렌더링
+                    document.getElementById('currentFileName').innerText = `📁 현재 적용된 파일: ${fileName}`;
+
                     headers = Object.keys(excelData[0]).filter(h => !h.includes("__EMPTY"));
                     initUI();
                 }
@@ -387,12 +407,16 @@
 
     function resetData() {
         if(confirm("기존에 저장된 데이터를 지우고 새 엑셀 파일을 올리시겠습니까?")) {
-            safeRemoveItem(STORAGE_KEY); excelData = []; headers = [];
+            safeRemoveItem(STORAGE_KEY); 
+            safeRemoveItem(FILENAME_KEY);
+            excelData = []; headers = [];
+            
             document.getElementById('searchSection').style.display = 'none';
             document.getElementById('logTable').style.display = 'none';
             document.getElementById('btnUpdateData').style.display = 'none';
             document.getElementById('dropZone').style.display = 'block';
             document.getElementById('searchInput').value = ""; document.getElementById('fileInput').value = "";
+            document.getElementById('currentFileName').innerText = ""; // 초기화 시 텍스트 삭제
         }
     }
 
@@ -425,6 +449,7 @@
         document.getElementById('logTable').style.display = 'table';
         document.getElementById('dropZone').style.display = 'none';
         document.getElementById('btnUpdateData').style.display = 'inline-flex';
+        
         const thead = document.getElementById('tableHead');
         thead.innerHTML = `<tr>${headers.map((h, index) => {
             let width = "25%"; 
