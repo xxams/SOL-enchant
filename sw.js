@@ -1,42 +1,35 @@
-const CACHE_NAME = 'slog-pwa-v2'; // 👈 버전을 v2로 올렸습니다!
-const urlsToCache = [
-  './',
-  './index.html'
-];
+// 🛠️ 캐시를 아예 생성하지 않고, 무조건 실시간 Vercel 서버로 직행하는 수문장 코드
+const CACHE_NAME = 'slog-pwa-dynamic-' + new Date().getTime(); // 매번 새로운 이름 생성
 
-// 1. 설치될 때 파일을 내 컴퓨터에 저장(캐싱)
 self.addEventListener('install', event => {
-  self.skipWaiting(); // 👈 대기하지 말고 즉시 새 버전으로 갈아끼우라는 마법의 코드
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        return cache.addAll(urlsToCache);
-      })
-  );
+  // 업데이트 대기 상태를 없애고 즉시 새로운 서비스 워커를 활성화
+  self.skipWaiting();
 });
 
-// 2. 옛날 캐시(v1)를 강제로 지워버리는 청소부 역할 (새로 추가됨!)
 self.addEventListener('activate', event => {
+  // 활성화되자마자 즉시 기존의 모든 옛날 캐시를 싹 청소(삭제)
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('이전 버전 캐시 삭제 완료:', cacheName);
-            return caches.delete(cacheName); // 옛날 기억 삭제!
-          }
+          return caches.delete(cacheName);
         })
       );
-    }).then(() => self.clients.claim()) // 👈 즉시 웹사이트 통제권 획득
+    }).then(() => self.clients.claim()) // 즉시 웹사이트 제어권 획득
   );
 });
 
-// 3. 오프라인 상태에서도 저장된 파일을 불러와서 실행
+// 핵심: 네트워크(Vercel 서버)에서 항상 최신 코드를 먼저 가져오고, 실패했을 때만 임시 캐시를 씀
 self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request)
+    fetch(event.request)
       .then(response => {
-        return response || fetch(event.request);
+        // 서버 통신이 성공하면 무조건 서버에서 준 최신 화면을 그대로 반환! (자동 Ctrl+Shift+R 효과)
+        return response;
+      })
+      .catch(() => {
+        // 혹시나 사내 네트워크가 끊겼을 때만 예외적으로 열리도록 방어
+        return caches.match(event.request);
       })
   );
 });
