@@ -238,47 +238,29 @@
     let isFeedbackSubmitted = false;
 
     document.addEventListener("DOMContentLoaded", function() {
-// 👇 [최종 확정] 주소창 유무(물리 픽셀 두께) 측정을 통한 크롬 탭 원천 차단 👇
+// 👇 [초강력 보안 강화] 오직 .html 경로만 허용하고 .app 경로는 무조건 차단 👇
         const isVercelWeb = window.location.hostname.includes('vercel.app');
         const currentPath = window.location.pathname;
 
-        // 상단 주소창/탭 영역이 차지하는 비율 계산
-        // 크롬 탭으로 열면 주소창 때문에 이 비율이 0.8~0.9 정도로 낮아집니다.
-        // 주소창이 없는 진짜 앱 창(캡처하신 상태)으로 열리면 이 비율이 0.95 이상(거의 1)이 됩니다.
-        const windowHeightRatio = window.innerHeight / window.outerHeight;
-        
-        // 비율이 0.93 이하라는 것은 눈앞에 '크롬 주소창이나 탭 바'가 당당히 보인다는 뜻입니다.
-        const isChromeTab = windowHeightRatio <= 0.93;
-
-        // Vercel 웹 환경이면서, 눈앞에 주소창이 보이는 크롬 탭 상태라면 무조건 차단!
-        if (isVercelWeb && isChromeTab) {
+        // 주소가 vercel.app으로 서비스되는 환경인데, 끝자리가 .html로 끝나지 "않으면" 무조건 차단!
+        // (즉, 주소가 .app이나 .app/ 등으로 끝나면 앱 창이든 크롬 창이든 국물도 없이 셧다운)
+        if (isVercelWeb && !currentPath.endsWith('.html')) {
             
-            let warningTitle = "";
-            let warningText = "";
-
-            // 1. 주소가 .html 로 끝나는 경우
-            if (currentPath.endsWith('.html')) {
-                warningTitle = "⚠️ 다이렉트 경로 실행 차단 (.html)";
-                warningText = "크롬에서 열기를 하셨거나 직접 경로로 접속하셨습니다.<br>보안 규정에 따라 일반 웹 브라우저에서는 툴이 작동하지 않습니다.<br><br>반드시 <b>바탕화면에 생성된 앱 아이콘</b>으로 다시 실행해 주세요.";
-            } 
-            // 2. 주소가 기본 경로인 경우 (앱 미설치자가 처음 링크 타고 들어왔을 때)
-            else {
-                warningTitle = "🚨 웹 브라우저 실행 차단 안내 (.app)";
-                warningText = "사내 정보 유출 방지 및 보안 규정에 따라 <b>일반 웹 브라우저에서는 툴을 실행할 수 없습니다.</b><br><br>인터넷 주소창 우측 끝에 있는 <b>[ ⬇️ 앱 설치 ]</b> 버튼을 눌러<br><b>바탕화면에 생성된 오프라인 전용 앱</b>으로 실행해 주세요.";
-            }
-
-            // 3. 화면 전체를 덮어버리는 차단 UI 그리기
+            // 화면 전체를 완전히 새빨간 경고장으로 도배
             document.body.innerHTML = `
                 <div style="height: 100vh; display: flex; align-items: center; justify-content: center; background: #f8f9fa; font-family: 'Noto Sans KR', sans-serif;">
                     <div style="background: white; border: 2px solid #d93025; padding: 50px; text-align: center; border-radius: 12px; box-shadow: 0 10px 30px rgba(217,48,37,0.2); max-width: 600px;">
-                        <h2 style="color: #d93025; margin-top: 0; font-size: 24px; font-weight: 700;">${warningTitle}</h2>
-                        <p style="font-size: 16px; color: #333; line-height: 1.6; word-break: keep-all; font-weight: 500;">
-                            ${warningText}
+                        <h2 style="color: #d93025; margin-top: 0; font-size: 24px; font-weight: 700;">🚨 잘못된 경로 접속 차단 (.app)</h2>
+                        <p style="font-size: 16px; color: #333; line-height: 1.6; word-break: keep-all; font-weight: 500; margin-bottom: 0;">
+                            보안 규정에 따라 메인 주소(.app)로는 툴을 사용할 수 없습니다.<br><br>
+                            크롬 주소창 우측의 <b>[앱에서 열기]</b> 버튼을 누르시거나,<br>
+                            바탕화면의 앱 아이콘을 우클릭하여 <b>[크롬에서 열기]</b>를 선택해<br>
+                            반드시 주소 끝에 <b>/index.html</b>이 붙은 다이렉트 경로로 사용해 주세요!
                         </p>
                     </div>
                 </div>
             `;
-            return; // 엑셀 기능을 100% 강제 정지
+            return; // 뒤에 있는 엑셀 업로드, 검색 엔진 등 모든 자바스크립트 100% 강제 올스톱
         }
         // 👆 ------------------------------------------------------------------- 👆
         const lastModified = new Date(document.lastModified);
