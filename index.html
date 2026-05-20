@@ -238,13 +238,18 @@
     let isFeedbackSubmitted = false;
 
     document.addEventListener("DOMContentLoaded", function() {
-// 👇 웹 접속 '원천 차단' 및 주소별 맞춤 경고 로직 👇
+// 👇 [최종 통합] 웹 접속 원천 차단 및 주소별 맞춤 경고 로직 👇
         const isVercelWeb = window.location.hostname.includes('vercel.app');
-        const isPWA = window.matchMedia('(display-mode: standalone)').matches;
         const currentPath = window.location.pathname;
 
-        // 웹 브라우저(크롬 등)로 접속한 경우 무조건 차단 (isPWA가 false일 때)
-        if (isVercelWeb && !isPWA) {
+        // 🚨 [핵심 변경] 진짜 독립된 앱 창으로 뜬 게 맞는지 엄격하게 검사
+        // 1. 디스플레이 모드가 standalone인지 확인
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+        // 2. 모바일/데스크톱 앱 전용 네비게이터 모드인지 확인
+        const isAppWindow = window.navigator.standalone === true || isStandalone;
+
+        // 일반 크롬 브라우저 탭으로 접속한 경우 (isAppWindow가 false이면 무조건 차단!)
+        if (isVercelWeb && !isAppWindow) {
             
             let warningTitle = "";
             let warningText = "";
@@ -262,18 +267,18 @@
 
             // 3. 화면 전체를 덮어버리는 차단 UI 그리기
             document.body.innerHTML = `
-                <div style="height: 100vh; display: flex; align-items: center; justify-content: center; background: #f8f9fa;">
+                <div style="height: 100vh; display: flex; align-items: center; justify-content: center; background: #f8f9fa; font-family: 'Noto Sans KR', sans-serif;">
                     <div style="background: white; border: 2px solid #d93025; padding: 50px; text-align: center; border-radius: 12px; box-shadow: 0 10px 30px rgba(217,48,37,0.2); max-width: 600px;">
-                        <h2 style="color: #d93025; margin-top: 0; font-size: 24px;">${warningTitle}</h2>
-                        <p style="font-size: 16px; color: #333; line-height: 1.6; word-break: keep-all;">
+                        <h2 style="color: #d93025; margin-top: 0; font-size: 24px; font-weight: 700;">${warningTitle}</h2>
+                        <p style="font-size: 16px; color: #333; line-height: 1.6; word-break: keep-all; font-weight: 500;">
                             ${warningText}
                         </p>
                     </div>
                 </div>
             `;
-            return; // 엑셀 표를 그리거나 검색하는 등의 후속 로직을 100% 강제 정지
+            return; // 후속 로직(업로드, 표 그리기 등)을 100% 강제 정지
         }
-        // 👆 ---------------------- 👆
+        // 👆 ------------------------------------------------------------------- 👆
         const lastModified = new Date(document.lastModified);
         const year = lastModified.getFullYear();
         const month = String(lastModified.getMonth() + 1).padStart(2, '0');
