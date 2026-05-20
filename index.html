@@ -238,16 +238,27 @@
     let isFeedbackSubmitted = false;
 
     document.addEventListener("DOMContentLoaded", function() {
-    // 👇 Vercel 웹 접속 차단 로직 👇
+// 👇 Vercel 웹 접속 '원천 차단' 로직 👇
         const isVercelWeb = window.location.hostname.includes('vercel.app');
         const isPWA = window.matchMedia('(display-mode: standalone)').matches;
 
         if (isVercelWeb && !isPWA) {
-            // Vercel 웹 브라우저로 접속한 경우: 업로드 창 숨기고 경고창 띄우기
-            document.getElementById('dropZone').style.display = 'none';
-            document.getElementById('webWarning').style.display = 'block';
+            // 크롬 브라우저로 열면 화면 전체를 덮어버리고 스크립트 실행 중지!
+            document.body.innerHTML = `
+                <div style="height: 100vh; display: flex; align-items: center; justify-content: center; background: #f8f9fa;">
+                    <div style="background: white; border: 2px solid #d93025; padding: 50px; text-align: center; border-radius: 12px; box-shadow: 0 10px 30px rgba(217,48,37,0.2); max-width: 600px;">
+                        <h2 style="color: #d93025; margin-top: 0; font-size: 24px;">🚨 웹 브라우저 실행 차단 안내</h2>
+                        <p style="font-size: 16px; color: #333; line-height: 1.6; word-break: keep-all;">
+                            사내 정보 유출 방지 및 보안 규정에 따라 <b>일반 웹 브라우저에서는 툴을 실행할 수 없습니다.</b><br><br>
+                            인터넷 주소창 우측 끝에 있는 <b>[ ⬇️ 앱 설치 ]</b> 또는 <b>[ 앱에서 열기 ]</b> 버튼을 눌러,<br>
+                            반드시 <b>바탕화면에 생성된 오프라인 전용 앱</b>으로 실행해 주세요.
+                        </p>
+                    </div>
+                </div>
+            `;
+            return; // 엑셀 표 그리는 기능 등 뒤에 있는 모든 로직 강제 정지
         }
-        // 👆 ---------------------- 👆    
+        // 👆 ---------------------- 👆
         const lastModified = new Date(document.lastModified);
         const year = lastModified.getFullYear();
         const month = String(lastModified.getMonth() + 1).padStart(2, '0');
