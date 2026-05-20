@@ -1,0 +1,15 @@
+{
+  "name": "S-Log 통합 검색기",
+  "short_name": "S-Log 검색기",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/281/281760.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
